@@ -1,0 +1,30 @@
+{
+    "include":[],
+    "molecules":{
+        "SOL":{
+               "beads":[
+                    {"name":"W", "type":"P4", "atoms":["OW", "HW1", "HW2"]}
+               ],
+               "bonds":[]
+        },
+
+        "ALLA":{
+            "beads":[
+                {"name":"C1", "type":"P3", "atoms":["C1", "O1"]},
+                {"name":"C2", "type":"P3", "atoms":["C2", "O2"]},
+                {"name":"C3", "type":"P3", "atoms":["C3", "O3"]},
+                {"name":"C4", "type":"P3", "atoms":["C4", "O4"]},
+                {"name":"C5", "type":"P2", "atoms":["C5", "C6", "O6"]},
+                {"name":"O5", "type":"P4", "atoms":["O5"]}
+            ],
+            "bonds":[
+               ["C1", "C2"],
+               ["C2", "C3"],
+               ["C3", "C4"],
+               ["C4", "C5"],
+               ["C5", "O5"],
+               ["O5", "C1"]
+            ]
+        }
+    }
+}
