@@ -1,12 +1,5 @@
 import json
-
-
-class DuplicateSectionError(Exception):
-    """
-    Exception used to indicate that a section has appeared twice in a file.
-    """
-    def __repr__(self):
-        return "Section {0} appears twice in file {1}.".format(*self.args)
+import os
 
 
 class Record(dict):
@@ -18,21 +11,28 @@ class Record(dict):
 
 
 class CFG:
-    def __init__(self, filename):
+    def __init__(self, filename, from_section=None):
         with open(filename) as f:
-            try:
-                self._json = json.load(f, object_hook=Record)
-            except ValueError:
-                raise DuplicateSectionError()
+            self._json = json.load(f, object_hook=Record)
+
+        while self._json.include:
+            include_file = os.path.join(os.path.dirname(filename), self._json.include.pop())
+            with open(include_file) as include_file:
+                include_json = json.load(include_file, object_hook=Record)
+
+            for curr, incl in zip(self._json.values(), include_json.values()):
+                try:
+                    curr += incl
+                except TypeError:
+                    curr.update(incl)
+
+        if from_section is not None:
+            self._records = self._json[from_section]
+        else:
+            self._records = self._json
 
     def __getitem__(self, item):
-        return Record(self._json[item])
+        return self._records[item]
 
     def __contains__(self, item):
-        return item in self._json
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, type, value, traceback):
-        pass
+        return item in self._records

@@ -1,0 +1,4 @@
+{
+    "include":["martini_lipids.json", "martini_aminoacids.json"],
+    "molecules":{}
+}

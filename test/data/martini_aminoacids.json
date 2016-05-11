@@ -1,0 +1,9 @@
+{
+    "include":[],
+    "molecules":{
+        "GLY":{
+               "beads":[],
+               "bonds":[]
+        }
+    }
+}

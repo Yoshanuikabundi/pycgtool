@@ -1,0 +1,9 @@
+{
+    "include":[],
+    "molecules":{
+        "DOPC":{
+               "beads":[],
+               "bonds":[]
+        }
+    }
+}
