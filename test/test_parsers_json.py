@@ -49,6 +49,10 @@ class TestParsersJson(unittest.TestCase):
         self.assertTrue("DOPC" in cfg)
         self.assertTrue("GLY" in cfg)
 
+    def test_missing_section(self):
+        with self.assertRaises(KeyError):
+            cfg = CFG("test/data/water.json", "potato")
+
 
 if __name__ == '__main__':
     unittest.main()

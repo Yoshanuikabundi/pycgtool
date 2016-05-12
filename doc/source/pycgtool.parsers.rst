@@ -7,6 +7,7 @@ Submodules
 .. toctree::
 
    pycgtool.parsers.cfg
+   pycgtool.parsers.json
 
 Module contents
 ---------------
