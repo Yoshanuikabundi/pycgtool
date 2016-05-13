@@ -1,6 +1,6 @@
 import unittest
 
-from pycgtool.parsers.json import CFG
+from pycgtool.parsers.json import CFG, jsonify
 
 
 class TestParsersJson(unittest.TestCase):
@@ -52,6 +52,22 @@ class TestParsersJson(unittest.TestCase):
     def test_missing_section(self):
         with self.assertRaises(KeyError):
             cfg = CFG("test/data/water.json", "potato")
+
+    def test_convert(self):
+        jsonify("test/data/sugar.map", "test/data/sugar.bnd", "test.json")
+        test_json = CFG("test.json", from_section="molecules")
+        ref_json = CFG("test/data/sugar.json", from_section="molecules")
+        for tbead, rbead in zip(test_json["ALLA"].beads, ref_json["ALLA"].beads):
+            self.assertEqual(tbead, rbead)
+
+        for tbond, rbond in zip(test_json["ALLA"].bonds, ref_json["ALLA"].bonds):
+            self.assertEqual(tbond, rbond)
+
+        for tbead, rbead in zip(test_json["SOL"].beads, ref_json["SOL"].beads):
+            self.assertEqual(tbead, rbead)
+
+        for tbond, rbond in zip(test_json["SOL"].bonds, ref_json["SOL"].bonds):
+            self.assertEqual(tbond, rbond)
 
 
 if __name__ == '__main__':
