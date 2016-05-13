@@ -1,6 +1,8 @@
 import json
 import os
 
+from .cfg import CFG as OldParser
+
 
 class AttrDict(dict):
     """
@@ -50,3 +52,31 @@ class CFG:
 
     def __contains__(self, item):
         return item in self._records
+
+
+def jsonify(mappingfile, bondfile, outfile):
+    json_dict = AttrDict({"include": [],
+                          "molecules": {}})
+    with OldParser(mappingfile) as mappings:
+        for mapping in mappings:
+            if mapping.name not in json_dict.molecules:
+                json_dict.molecules[mapping.name] = {}
+            mol = json_dict.molecules[mapping.name]
+            mol["beads"] = []
+            for line in mapping:
+                mol["beads"].append({"name": line[0],
+                                     "type": line[1],
+                                     "atoms": line[2:]})
+
+    with OldParser(bondfile) as bondlists:
+        for bondlist in bondlists:
+            try:
+                mol = json_dict.molecules[bondlist.name]
+            except KeyError:
+                continue
+            mol["bonds"] = []
+            for line in bondlist:
+                mol["bonds"].append(line)
+
+    with open(outfile, "w") as out:
+        json.dump(json_dict, out, indent=4, sort_keys=True)
