@@ -42,7 +42,7 @@ class TestParsersJson(unittest.TestCase):
         self.assertEqual("W", bead.name)
         self.assertEqual("P4", bead.type)
         self.assertEqual(["OW", "HW1", "HW2"], bead.atoms)
-        self.assertEqual(0, len(cfg["SOL"].bonds))
+        self.assertEqual(0, len(parser["SOL"].bonds))
 
     def test_json_sugar(self):
         parser = Parser("test/data/sugar.json", "molecules")
