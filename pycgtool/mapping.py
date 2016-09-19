@@ -7,6 +7,8 @@ Each list corresponds to a single molecule.
 
 import numpy as np
 import warnings
+import itertools
+import multiprocessing
 
 from .frame import Atom, Residue, Frame
 from .parsers.cfg import CFG
@@ -82,6 +84,8 @@ class Mapping:
         self._mappings = {}
 
         self._map_center = options.map_center
+
+        # self._pool = multiprocessing.Pool(processes=4)
 
         with CFG(filename) as cfg:
             self._manual_charges = {}
@@ -179,28 +183,33 @@ class Mapping:
         cgframe.number = frame.number
         cgframe.box = frame.box
 
-        for aares, cgres in zip(aa_residues, cgframe):
-            molmap = self._mappings[aares.name]
-
-            for i, (bead, bmap) in enumerate(zip(cgres, molmap)):
-                ref_coords = aares[bmap[0]].coords
-                coords = np.array([aares[atom].coords for atom in bmap], dtype=np.float32)
-
-                if self._map_center == "geom":
-                    bead.coords = calc_coords(ref_coords, coords, cgframe.box)
-                else:
-                    try:
-                        weights = bmap.weights[self._map_center]
-                    except KeyError as e:
-                        if self._map_center == "mass":
-                            e.args = ("Error with mapping type 'mass', did you provide an itp file?",)
-                        else:
-                            e.args = ("Error with mapping type '{0}', unknown mapping type.".format(e.args[0]),)
-                        raise
-                    bead.coords = calc_coords_weight(ref_coords, coords, cgframe.box, weights)
+        with multiprocessing.Pool(processes=1) as pool:
+            cgframe.residues = list(pool.map(self.map_one, zip(aa_residues, cgframe, itertools.repeat(cgframe.box))))
 
         return cgframe
 
+    def map_one(self, tup):
+        aares, cgres, box = tup
+        molmap = self._mappings[aares.name]
+
+        for i, (bead, bmap) in enumerate(zip(cgres, molmap)):
+            ref_coords = aares[bmap[0]].coords
+            coords = np.array([aares[atom].coords for atom in bmap], dtype=np.float32)
+
+            if self._map_center == "geom":
+                bead.coords = calc_coords(ref_coords, coords, box)
+            else:
+                try:
+                    weights = bmap.weights[self._map_center]
+                except KeyError as e:
+                    if self._map_center == "mass":
+                        e.args = ("Error with mapping type 'mass', did you provide an itp file?",)
+                    else:
+                        e.args = ("Error with mapping type '{0}', unknown mapping type.".format(e.args[0]),)
+                    raise
+                bead.coords = calc_coords_weight(ref_coords, coords, box, weights)
+
+        return cgres
 
 @numba.jit
 def calc_coords_weight(ref_coords, coords, box, weights):
