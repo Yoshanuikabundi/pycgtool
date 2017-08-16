@@ -1,6 +1,13 @@
 pipeline {
   agent any
   stages {
+    stage('Setup Environment') {
+      steps {
+        sh '''python3 -m venv env
+source env/bin/activate
+pip install -e .[full]'''
+      }
+    }
     stage('Test') {
       steps {
         sh 'py.test --junitxml results.xml test/'
