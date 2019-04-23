@@ -106,7 +106,7 @@ class BondSetTest(unittest.TestCase):
 
     def test_bondset_boltzmann_invert(self):
         measure = BondSet("test/data/sugar.bnd", DummyOptions)
-        frame = Frame("test/data/sugar.gro", xtc="test/data/sugar.xtc")
+        frame = Frame("test/data/sugar.gro", traj="test/data/sugar.xtc")
         mapping = Mapping("test/data/sugar.map", DummyOptions)
 
         cgframe = mapping.apply(frame)
@@ -122,7 +122,7 @@ class BondSetTest(unittest.TestCase):
             default_fc = True
 
         measure = BondSet("test/data/sugar.bnd", DefaultOptions)
-        frame = Frame("test/data/sugar.gro", xtc="test/data/sugar.xtc")
+        frame = Frame("test/data/sugar.gro", traj="test/data/sugar.xtc")
         mapping = Mapping("test/data/sugar.map", DefaultOptions)
 
         cgframe = mapping.apply(frame)
@@ -140,7 +140,7 @@ class BondSetTest(unittest.TestCase):
             dihedral_form = "MartiniDefaultDihedral"
 
         measure = BondSet("test/data/sugar.bnd", FuncFormOptions)
-        frame = Frame("test/data/sugar.gro", xtc="test/data/sugar.xtc")
+        frame = Frame("test/data/sugar.gro", traj="test/data/sugar.xtc")
         mapping = Mapping("test/data/sugar.map", DummyOptions)
 
         cgframe = mapping.apply(frame)
@@ -154,7 +154,7 @@ class BondSetTest(unittest.TestCase):
     @unittest.skipIf(not mdtraj_present, "MDTRAJ or Scipy not present")
     def test_bondset_boltzmann_invert_mdtraj(self):
         logging.disable(logging.WARNING)
-        frame = Frame("test/data/sugar.gro", xtc="test/data/sugar.xtc",
+        frame = Frame("test/data/sugar.gro", traj="test/data/sugar.xtc",
                       xtc_reader="mdtraj")
         logging.disable(logging.NOTSET)
 
@@ -194,7 +194,7 @@ class BondSetTest(unittest.TestCase):
 
     def test_full_itp_sugar(self):
         measure = BondSet("test/data/sugar.bnd", DummyOptions)
-        frame = Frame("test/data/sugar.gro", xtc="test/data/sugar.xtc")
+        frame = Frame("test/data/sugar.gro", traj="test/data/sugar.xtc")
         mapping = Mapping("test/data/sugar.map", DummyOptions)
         cgframe = mapping.apply(frame)
 
@@ -217,7 +217,7 @@ class BondSetTest(unittest.TestCase):
 
     def test_dump_bonds(self):
         measure = BondSet("test/data/sugar.bnd", DummyOptions)
-        frame = Frame("test/data/sugar.gro", xtc="test/data/sugar.xtc")
+        frame = Frame("test/data/sugar.gro", traj="test/data/sugar.xtc")
         mapping = Mapping("test/data/sugar.map", DummyOptions)
         cgframe = mapping.apply(frame)
 

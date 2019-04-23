@@ -20,8 +20,8 @@ from pycgtool.pycgtool import main, map_only
 
 class Args:
     def __init__(self, name, map=True, bnd=True):
-        self.gro = os.path.join("test/data", name+".gro")
-        self.xtc = os.path.join("test/data", name+".xtc")
+        self.coords = os.path.join("test/data", name+".gro")
+        self.traj = os.path.join("test/data", name+".xtc")
         self.map = os.path.join("test/data", name+".map") if map else None
         self.bnd = os.path.join("test/data", name+".bnd") if bnd else None
         self.begin = 0
@@ -32,7 +32,7 @@ class Args:
 class PycgtoolTest(unittest.TestCase):
     config = Options([("output_name", "out"),
                       ("output", "gro"),
-                      ("output_xtc", True),
+                      ("output_traj", "xtc"),
                       ("map_only", False),
                       ("map_center", "geom"),
                       ("virtual_map_center", "geom"),
@@ -68,8 +68,8 @@ class PycgtoolTest(unittest.TestCase):
     def test_full(self):
         path = os.path.dirname(os.path.dirname(__file__))
         self.assertEqual(0, subprocess.check_call([os.path.join(path, "pycgtool.py"),
-                                                   "-g", "test/data/sugar.gro",
-                                                   "-x", "test/data/sugar.xtc",
+                                                   "-c", "test/data/sugar.gro",
+                                                   "-t", "test/data/sugar.xtc",
                                                    "-m", "test/data/sugar_only.map",
                                                    "-b", "test/data/sugar.bnd",
                                                    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE))

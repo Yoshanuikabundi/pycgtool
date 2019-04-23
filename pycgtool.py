@@ -16,13 +16,14 @@ if __name__ == "__main__":
     advanced_arguments = parser.add_argument_group("Advanced options")
     input_files = parser.add_argument_group("Input files")
 
-    input_files.add_argument('-g', '--gro', type=str, required=True, help="GROMACS GRO file")
+    input_files.add_argument('-c', '--coords', type=str, required=True, help="structure coordinate file")
     input_files.add_argument('-m', '--map', type=str, help="Mapping file")
-    input_files.add_argument('-x', '--xtc', type=str, help="GROMACS XTC file")
+    input_files.add_argument('-t', '--traj', type=str, help="Trajectory file")
     input_files.add_argument('-b', '--bnd', type=str, help="Bonds file")
     input_files.add_argument('-i', '--itp', type=str, help="GROMACS ITP file")
 
-    parser.add_argument('--outputxtc', default=False, action='store_true', help="Output a pseudo-CG trajectory")
+    parser.add_argument('--outputtraj', default=None, help="Format of ouput pseudo-CG trajectory. Default is to not"
+                                                           "output a trajectory")
     parser.add_argument('--quiet', default=False, action='store_true', help="Hide progress bars")
     input_files.add_argument('--begin', type=int, default=0, help="Frame number to begin")
     input_files.add_argument('--end', type=int, default=-1, help="Frame number to end")
@@ -60,7 +61,7 @@ if __name__ == "__main__":
     config = Options([
         ("output_name", args.output_name),
         ("output", args.output),
-        ("output_xtc", args.outputxtc),
+        ("output_traj", args.outputtraj),
         ("map_only", args.map_only),
         ("map_center", args.map_center),
         ("virtual_map_center", args.virtual_map_center),
@@ -81,8 +82,8 @@ if __name__ == "__main__":
         parser.error("One or both of -m and -b is required.")
 
 
-    print("Using GRO: {0}".format(args.gro))
-    print("Using XTC: {0}".format(args.xtc))
+    print("Using coordinate file: {0}".format(args.coords))
+    print("Using Trajectory: {0}".format(args.traj))
 
     if config.map_only:
         map_only(args, config)

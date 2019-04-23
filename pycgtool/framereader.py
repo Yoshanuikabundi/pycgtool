@@ -11,6 +11,8 @@ import itertools
 import logging
 import collections
 import warnings
+from mdtraj import formats as fmt
+import types
 
 import numpy as np
 
@@ -19,6 +21,19 @@ from .util import FixedFormatUnpacker
 
 logger = logging.getLogger(__name__)
 
+def load_blank(self):
+    '''
+    This is a filthy hack that stops mdtraj changing the names
+    of residues/atoms to pdb standard names
+    :param self: reference to instance
+    :return:
+    '''
+    self._residueNameReplacements = {}
+    self._atomNameReplacements = {}
+    return None
+
+funcType = types.MethodType
+fmt.pdb.PDBTrajectoryFile._loadNameReplacementTables = funcType(load_blank, fmt.pdb.PDBTrajectoryFile)
 
 class UnsupportedFormatException(Exception):
     def __init__(self, msg=None):
@@ -37,8 +52,7 @@ class NonMatchingSystemError(ValueError):
 def get_frame_reader(top, traj=None, frame_start=0, name=None):
     readers = collections.OrderedDict([
         ("simpletraj", FrameReaderSimpleTraj),
-        ("mdtraj", FrameReaderMDTraj),
-        ("mdanalysis", FrameReaderMDAnalysis),
+        ("mdtraj", FrameReaderMDTraj)
     ])
 
     nonmatching_atoms = False
@@ -122,11 +136,11 @@ class FrameReader(metaclass=abc.ABCMeta):
         pass
 
 
+
 class FrameReaderSimpleTraj(FrameReader):
     def __init__(self, topname, trajname=None, frame_start=0):
         """
         Open input XTC file from which to read coordinates using simpletraj library.
-
         :param topname: MD topology file - not used
         :param trajname: MD trajectory file to read subsequent frames
         :param frame_start: Frame number to start on, default 0
@@ -163,7 +177,6 @@ class FrameReaderSimpleTraj(FrameReader):
         """
         Parse a GROMACS GRO file and create Residues/Atoms
         Required before reading coordinates from XTC file
-
         :param frame: Frame instance to initialise from GRO file
         """
         with open(self._topname) as gro:
@@ -206,7 +219,6 @@ class FrameReaderSimpleTraj(FrameReader):
         box = np.diag(self._traj.box)[0:3] / 10
 
         return self._traj.time, xyz, box
-
 
 class FrameReaderMDTraj(FrameReader):
     def __init__(self, topname, trajname=None, frame_start=0):
@@ -281,46 +293,4 @@ class FrameReaderMDTraj(FrameReader):
         except TypeError:
             return self._traj.time[number], self._traj.xyz[number], None
 
-
-class FrameReaderMDAnalysis(FrameReader):
-    def __init__(self, topname, trajname=None, frame_start=0):
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            import MDAnalysis
-
-        super().__init__(topname, trajname, frame_start)
-        self.warnings = ["MDAnalysis on python 3 is highly experimental!"]
-
-        try:
-            if trajname is None:
-                self._traj = MDAnalysis.Universe(topname)
-            else:
-                self._traj = MDAnalysis.Universe(topname, trajname)
-        except ValueError as e:
-            if "isn't a valid topology format" in repr(e):
-                raise UnsupportedFormatException from e
-            if "don't have the same number of atoms" in repr(e):
-                raise NonMatchingSystemError from e
-            raise
-
-        self.num_atoms = self._traj.atoms.n_atoms
-        self.num_frames = self._traj.trajectory.n_frames
-
-    def _initialise_frame(self, frame):
-        frame.name = ""
-        frame.natoms = self.num_atoms
-
-        import MDAnalysis
-        topol = MDAnalysis.Universe(self._topname)
-        frame.box = topol.dimensions[0:3] / 10.
-
-        for res in topol.residues:
-            residue = Residue(name=res.resname, num=res.resnum)
-            for atom in res.atoms:
-                residue.add_atom(Atom(name=atom.name, num=atom.id, coords=atom.position / 10.))
-            frame.residues.append(residue)
-
-    def _read_frame_number(self, number):
-        traj_frame = self._traj.trajectory[number]
-        return traj_frame.time, traj_frame.positions / 10., traj_frame.dimensions[0:3] / 10.
 

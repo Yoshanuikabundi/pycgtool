@@ -8,6 +8,12 @@ Both Frame and Residue are iterable. Residue is indexable with either atom numbe
 import logging
 
 import numpy as np
+import mdtraj as md
+from mdtraj import formats as fmt
+from mdtraj.core import element as elem
+from mdtraj.utils import (lengths_and_angles_to_box_vectors,
+                          box_vectors_to_lengths_and_angles)
+from re import sub
 
 from .util import backup_file, file_write_lines
 from .parsers.cfg import CFG
@@ -27,6 +33,46 @@ try:
 except NameError:
     class FileNotFoundError(OSError):
         pass
+
+
+formats_traj = {'dcd': fmt.DCDTrajectoryFile,
+           'xtc': fmt.XTCTrajectoryFile,
+           'trr': fmt.TRRTrajectoryFile,
+           'binpos': fmt.BINPOSTrajectoryFile,
+           'nc': fmt.NetCDFTrajectoryFile,
+           'netcdf': fmt.NetCDFTrajectoryFile,
+           'h5': fmt.HDF5TrajectoryFile,
+           'lh5': fmt.LH5TrajectoryFile,
+           'pdb': fmt.PDBTrajectoryFile,
+           'gro': fmt.GroTrajectoryFile}
+
+formats_frame = {'gro': fmt.GroTrajectoryFile,
+           'pdb': fmt.PDBTrajectoryFile}
+
+
+fields = {'trr': ('xyz', 'time', 'step', 'box', 'lambda'),
+          'xtc': ('xyz', 'time', 'step', 'box'),
+          'dcd': ('xyz', 'cell_lengths', 'cell_angles'),
+          'nc': ('xyz', 'time', 'cell_lengths', 'cell_angles'),
+          'netcdf': ('xyz', 'time', 'cell_lengths', 'cell_angles'),
+          'binpos': ('xyz',),
+          'lh5': ('xyz', 'topology'),
+          'h5': ('xyz', 'time', 'cell_lengths', 'cell_angles',
+                  'velocities', 'kineticEnergy', 'potentialEnergy',
+                  'temperature', 'lambda', 'topology'),
+          'pdb': ('xyz', 'topology', 'cell_angles', 'cell_lengths'),
+          'gro': ('xyz', 'topology', 'box')}
+
+units = {'xtc': 'nanometers',
+         'xtrr': 'nanometers',
+         'xbinpos': 'angstroms',
+         'nc': 'angstroms',
+         'netcdf': 'angstroms',
+         'dcd': 'angstroms',
+         'h5': 'nanometers',
+         'lh5': 'nanometers',
+         'gro': 'nanometers',
+         'pdb': 'angstroms'}
 
 
 class Atom:
@@ -112,12 +158,12 @@ class Frame:
     """
     Hold Atom data separated into Residues
     """
-    def __init__(self, gro=None, xtc=None, itp=None, frame_start=0, xtc_reader="simpletraj"):
+    def __init__(self, coords=None, traj=None, itp=None, frame_start=0, xtc_reader="mdtraj"):
         """
         Return Frame instance having read Residues and Atoms from GRO if provided
 
-        :param gro: GROMACS GRO file to read initial frame and extract residues
-        :param xtc: GROMACS XTC file to read subsequent frames
+        :param coords: coordinate file to read initial frame and extract residues e.g. GRO, PDB etc.
+        :param traj: trajectory file to read subsequent frames e.g. XTC, TRR, DCD etc.
         :param itp: GROMACS ITP file to read masses and charges
         :return: Frame instance
         """
@@ -129,11 +175,11 @@ class Frame:
         self.natoms = 0
         self.box = np.zeros(3, dtype=np.float32)
 
-        self._xtc_buffer = None
-
-        if gro is not None:
+        self._traj_buffer = None
+        self.topology = None
+        if coords is not None:
             from .framereader import get_frame_reader
-            self._trajreader = get_frame_reader(gro, traj=xtc, frame_start=frame_start)
+            self._trajreader = get_frame_reader(coords, traj=traj, frame_start=frame_start)
 
             self._trajreader.initialise_frame(self)
 
@@ -191,13 +237,13 @@ class Frame:
             self.number += 1
         return result
 
-    def write_xtc(self, filename):
+    def write_traj(self, filename, format="xtc"):
         """
-        Write frame to output XTC file.
+        Write frame to output Trajectory file.
 
-        :param filename: XTC filename to write to
+        :param filename: Trajectory filename to write to
         """
-        if self._xtc_buffer is None:
+        if self._traj_buffer is None:
             try:
                 import mdtraj
             except ImportError as e:
@@ -207,24 +253,19 @@ class Frame:
                     e.msg = "XTC output requires the module MDTraj (and probably Scipy)"
                 raise
 
+            filename = '{0}.{1}'.format(filename, format)
             backup_file(filename)
-            self._xtc_buffer = mdtraj.formats.XTCTrajectoryFile(filename, mode="w")
+            try:
+                self._traj_buffer = formats_traj[format](filename, mode="w")
+            except KeyError:
+                raise NotImplementedError("Trajectory format .{0} is not supported".format(format))
 
-        xyz = np.ndarray((1, self.natoms, 3), dtype=np.float32)
-        i = 0
-        for residue in self.residues:
-            for atom in residue.atoms:
-                xyz[0][i] = atom.coords
-                i += 1
+        data = self._get_traj_data(format=format)
 
-        time = np.array([self.time], dtype=np.float32)
-        step = np.array([self.number], dtype=np.int32)
+        if isinstance(self._traj_buffer, fmt.XTCTrajectoryFile):
+            pass
 
-        box = np.zeros((1, 3, 3), dtype=np.float32)
-        for i in range(3):
-            box[0][i][i] = self.box[i]
-
-        self._xtc_buffer.write(xyz, time=time, step=step, box=box)
+        self._traj_buffer.write(**data)
 
     def _parse_itp(self, filename):
         """
@@ -246,6 +287,48 @@ class Frame:
                         for atom, itpatom in zip(res, itpres):
                             atom.add_missing_data(itpatom)
 
+    def _get_traj_data(self, format="gro"):
+        """
+        Converts information in Frame instances into the fields of a specified format
+        :param format: format of output file
+        :return: dictionary of fields for outpur file
+        """
+        data = dict().fromkeys(fields[format], None)
+        convert = 1.0
+        if units[format] == 'angstroms':
+            convert = 10.
+
+        xyz = np.ndarray((1, self.natoms, 3), dtype=np.float32)
+        i = 0
+        for residue in self.residues:
+            for atom in residue.atoms:
+                xyz[0][i] = atom.coords * convert
+                i += 1
+
+        box = np.zeros((1, 3, 3), dtype=np.float32)
+        for i in range(3):
+            box[0][i][i] = self.box[i] * convert
+
+        if "cell_angles" in data:
+            a, b, c, alpha, beta, gamma = box_vectors_to_lengths_and_angles(box[:, 0], box[:, 1], box[:, 2])
+            data['cell_lengths'] = np.vstack((a, b, c)).T
+            data['cell_angles'] = np.vstack((alpha, beta, gamma)).T
+
+        else:
+            data['box'] = box
+
+        data['xyz'] = xyz
+        if 'time' in data:
+            data['time'] = np.array([self.time], dtype=np.float32)
+
+        if 'step' in data:
+            data['step'] = np.array([self.number], dtype=np.int32)
+
+        if 'topology' in data:
+            data['topology'] = self.to_mdtraj()
+
+        return data
+
     def output(self, filename, format="gro"):
         """
         Write coordinates from Frame to file.
@@ -253,6 +336,16 @@ class Frame:
         :param filename: Name of file to write to
         :param format: Format to write e.g. 'gro', 'lammps'
         """
+        #try:
+        #    writer = formats_frame[format](filename, mode="w")
+
+        #except KeyError:
+        #    raise NotImplementedError(".{0} coordinate files are not supported".format(format))
+
+        #xyz, time, step, box = self._get_traj_data(format=format)
+
+        #writer.write(xyz, self.traj, time=time, unitcell_vectors=box)
+
         outputs = {"gro": self._get_gro_lines,
                    "lammps": self._get_lammps_data_lines}
         try:
@@ -264,16 +357,13 @@ class Frame:
     def _get_lammps_data_lines(self):
         """
         Return lines of LAMMPS DATA file.
-
         :return List[str]: Lines of DATA file containing current coordinates
-
         """
         raise NotImplementedError("LAMMPS Data output has not yet been implemented.")
 
     def _get_gro_lines(self):
         """
         Return lines of GRO file.
-
         :return List[str]: Lines of GRO file containing current coordinates
         """
         ret_lines = [
@@ -292,6 +382,7 @@ class Frame:
 
         return ret_lines
 
+
     def add_residue(self, residue):
         """
         Add a Residue to this Frame
@@ -299,3 +390,24 @@ class Frame:
         :param residue: Residue to add
         """
         self.residues.append(residue)
+
+    def to_mdtraj(self):
+        """
+        Converts frame class to a mdtraj.Topology object
+        :return: mdtraj.Topology instance
+        """
+        topology = md.Topology()
+        chain = topology.add_chain()
+
+        for residue in self:
+            res = topology.add_residue(residue.name, chain, resSeq=residue.num)
+            for atom in residue:
+                thiselem = atom.name
+                if len(thiselem) > 1:
+                    thiselem = thiselem[0] + sub('[A-Z0-9]', '', thiselem[1:])
+                try:
+                    element = elem.get_by_symbol(thiselem)
+                except KeyError:
+                    element = elem.virtual
+                at = topology.add_atom(atom, element, residue=res, serial=atom.num)
+        return topology

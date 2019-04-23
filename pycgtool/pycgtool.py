@@ -18,7 +18,7 @@ def main(args, config):
     :param args: Arguments from argparse
     :param config: Configuration dictionary
     """
-    frame = Frame(gro=args.gro, xtc=args.xtc, itp=args.itp, frame_start=args.begin)
+    frame = Frame(coords=args.coords, traj=args.traj, itp=args.itp, frame_start=args.begin)
 
     if args.bnd:
         logger.info("Bond measurements will be made")
@@ -37,7 +37,7 @@ def main(args, config):
 
     # Only measure bonds from GRO frame if no XTC is provided
     # Allows the user to get a topology from a single snapshot
-    if args.bnd and args.xtc is None:
+    if args.bnd and args.traj is None:
         bonds.apply(cgframe)
 
     # Main loop - perform mapping and measurement on every frame in XTC
@@ -47,8 +47,8 @@ def main(args, config):
             return False
         if args.map:
             cgframe = mapping.apply(frame, cgframe=cgframe)
-            if config.output_xtc:
-                cgframe.write_xtc(config.output_name + ".xtc")
+            if config.output_traj is not None:
+                cgframe.write_traj(config.output_name, format=config.output_traj)
         else:
             cgframe = frame
         if args.bnd:
@@ -82,19 +82,19 @@ def map_only(args, config):
     :param args: Program arguments
     :param config: Object containing run options
     """
-    frame = Frame(gro=args.gro, xtc=args.xtc)
+    frame = Frame(coords=args.coords, traj=args.traj)
     mapping = Mapping(args.map, config)
     cgframe = mapping.apply(frame)
     cgframe.output(config.output_name + ".gro", format=config.output)
 
-    if args.xtc and (config.output_xtc or args.outputxtc):
+    if args.traj and (config.output_traj or args.outputtraj):
         # Main loop - perform mapping and measurement on every frame in XTC
         def main_loop():
             nonlocal cgframe
             if not frame.next_frame():
                 return False
             cgframe = mapping.apply(frame, cgframe=cgframe)
-            cgframe.write_xtc(config.output_name + ".xtc")
+            cgframe.write_traj(config.output_name, format=config.output_traj)
             return True
 
         numframes = frame.numframes - args.begin if args.end == -1 else args.end - args.begin
