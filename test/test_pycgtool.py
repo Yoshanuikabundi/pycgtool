@@ -49,7 +49,6 @@ class PycgtoolTest(unittest.TestCase):
         path = os.path.dirname(os.path.dirname(__file__))
         self.assertEqual(0, subprocess.check_call([os.path.join(path, "pycgtool.py"), "-h"], stdout=subprocess.PIPE))
 
-    @unittest.skipIf(not mdtraj_present, "MDTRAJ or Scipy not present")
     def test_map_only(self):
         logging.disable(logging.WARNING)
         map_only(Args("sugar"), self.config)
@@ -76,7 +75,7 @@ class PycgtoolTest(unittest.TestCase):
         self.assertTrue(cmp_file_whitespace_float("out.itp", "test/data/sugar_out.itp",
                                                   rtol=0.005))
         self.assertTrue(cmp_file_whitespace_float("out.gro", "test/data/sugar_out.gro",
-                                                  rtol=0.005))
+                                                  rtol=0.005, verbose=True))
     # TODO more tests
 
 

@@ -9,18 +9,7 @@ from pycgtool.frame import Atom, Residue, Frame
 from pycgtool.framereader import FrameReaderMDTraj
 from pycgtool.framereader import FrameReader, get_frame_reader
 from pycgtool.framereader import UnsupportedFormatException, NonMatchingSystemError
-
-try:
-    import mdtraj
-    mdtraj_present = True
-except ImportError:
-    mdtraj_present = False
-
-try:
-    import MDAnalysis
-    mdanalysis_present = True
-except ImportError:
-    mdanalysis_present = False
+from pycgtool.util import cmp_file_whitespace_float
 
 
 class AtomTest(unittest.TestCase):
@@ -91,12 +80,7 @@ class FrameTest(unittest.TestCase):
         self.assertEqual(residue, frame.residues[0])
         self.assertTrue(residue is frame.residues[0])
 
-    def test_frame_simpletraj_read_gro(self):
-        frame = Frame("test/data/water.gro", xtc_reader="simpletraj")
 
-        self.helper_read_xtc(frame, first_only=True)
-
-    @unittest.skipIf(not mdtraj_present, "MDTraj or Scipy not present")
     def test_frame_mdtraj_read_gro(self):
         logging.disable(logging.WARNING)
         frame = Frame("test/data/water.gro", xtc_reader="mdtraj")
@@ -105,14 +89,12 @@ class FrameTest(unittest.TestCase):
         self.helper_read_xtc(frame, first_only=True, skip_names=True)
 
 
-    @unittest.skipIf(not mdtraj_present, "MDTraj or Scipy not present")
     def test_frame_mdtraj_read_pdb(self):
         reader = FrameReaderMDTraj("test/data/water.pdb")
         frame = Frame.instance_from_reader(reader)
 
         self.helper_read_xtc(frame, first_only=True, skip_names=True)
 
-    @unittest.skipIf(not mdtraj_present and not mdanalysis_present, "Neither MDTraj or MDAnalysis is present")
     def test_frame_any_read_pdb(self):
         reader = get_frame_reader("test/data/water.pdb")
         frame = Frame.instance_from_reader(reader)
@@ -126,15 +108,9 @@ class FrameTest(unittest.TestCase):
     def test_frame_output_gro(self):
         frame = Frame("test/data/water.gro")
         frame.output("water-out.gro", format="gro")
-        self.assertTrue(filecmp.cmp("test/data/water.gro", "water-out.gro"))
+        self.assertTrue(cmp_file_whitespace_float("test/data/water.gro", "water-out.gro", verbose=True))
         os.remove("water-out.gro")
 
-    def test_frame_read_xtc_simpletraj_numframes(self):
-        frame = Frame(coords="test/data/water.gro", traj="test/data/water.xtc",
-                      xtc_reader="simpletraj")
-        self.assertEqual(11, frame.numframes)
-
-    @unittest.skipIf(not mdtraj_present, "MDTraj or Scipy not present")
     def test_frame_read_xtc_mdtraj_numframes(self):
         logging.disable(logging.WARNING)
         frame = Frame(coords="test/data/water.gro", traj="test/data/water.xtc",
@@ -142,12 +118,6 @@ class FrameTest(unittest.TestCase):
         logging.disable(logging.NOTSET)
         self.assertEqual(11, frame.numframes)
 
-    def test_frame_simpletraj_read_xtc(self):
-        frame = Frame(coords="test/data/water.gro", traj="test/data/water.xtc",
-                      xtc_reader="simpletraj")
-        self.helper_read_xtc(frame)
-
-    @unittest.skipIf(not mdtraj_present, "MDTraj or Scipy not present")
     def test_frame_mdtraj_read_xtc(self):
         logging.disable(logging.WARNING)
         frame = Frame(coords="test/data/water.gro", traj="test/data/water.xtc",
@@ -157,7 +127,7 @@ class FrameTest(unittest.TestCase):
         self.helper_read_xtc(frame, skip_names=True)
 
 
-    @unittest.skipIf(not mdtraj_present, "MDTraj or Scipy not present")
+
     def test_frame_write_xtc_mdtraj(self):
         try:
             os.remove("water_test2.xtc")
@@ -170,7 +140,7 @@ class FrameTest(unittest.TestCase):
         logging.disable(logging.NOTSET)
 
         while frame.next_frame():
-            frame.write_traj("water_test2.xtc")
+            frame.write_traj("water_test2", format="xtc")
 
 
     def test_frame_instance_from_reader_dummy(self):
@@ -199,12 +169,10 @@ class FrameTest(unittest.TestCase):
             reader = get_frame_reader("test/data/water.gro", "test/data/sugar.xtc")
 
 
-    @unittest.skipIf(not mdtraj_present, "MDTraj or Scipy not present")
     def test_raise_nonmatching_system_mdtraj(self):
         with self.assertRaises(NonMatchingSystemError):
             reader = FrameReaderMDTraj("test/data/water.gro", "test/data/sugar.xtc")
 
-    @unittest.skipIf(not mdtraj_present, "MDTraj or Scipy not present")
     def test_to_mdtraj(self):
         logging.disable(logging.WARNING)
         frame = Frame("test/data/water.gro", xtc_reader="mdtraj")
@@ -214,6 +182,21 @@ class FrameTest(unittest.TestCase):
         self.assertEqual(663, topology.n_atoms)
         self.assertEqual(221, topology.n_residues)
         self.assertEqual(topology.residue(0).name, "SOL")
+
+    def test_conv_dcd(self):
+        logging.disable(logging.WARNING)
+        frame = Frame("test/data/water.gro", "test/data/water.xtc", xtc_reader="mdtraj")
+        logging.disable(logging.NOTSET)
+        while frame.next_frame():
+            frame.write_traj("water", format="dcd")
+
+        frame.write_traj("water", format="dcd")
+        frame_dcd = Frame("test/data/water.gro", "water.dcd", xtc_reader="mdtraj")
+
+        os.remove("water.dcd")
+
+
+
 
 
 

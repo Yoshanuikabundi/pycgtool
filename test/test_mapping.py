@@ -6,6 +6,7 @@ import numpy as np
 
 from pycgtool.mapping import Mapping, VirtualMap
 from pycgtool.frame import Frame
+from pycgtool.util import cmp_file_whitespace_float
 
 
 class DummyOptions:
@@ -40,7 +41,7 @@ class MappingTest(unittest.TestCase):
         cgframe = mapping.apply(frame)
         self.assertEqual(len(frame), len(cgframe))
         cgframe.output("water-cg.gro", format="gro")
-        self.assertTrue(filecmp.cmp("test/data/water-cg.gro", "water-cg.gro"))
+        self.assertTrue(cmp_file_whitespace_float("test/data/water-cg.gro", "water-cg.gro"))
         os.remove("water-cg.gro")
 
     def test_mapping_charges(self):

@@ -32,6 +32,7 @@ def load_blank(self):
     self._atomNameReplacements = {}
     return None
 
+
 funcType = types.MethodType
 fmt.pdb.PDBTrajectoryFile._loadNameReplacementTables = funcType(load_blank, fmt.pdb.PDBTrajectoryFile)
 
@@ -51,7 +52,6 @@ class NonMatchingSystemError(ValueError):
 
 def get_frame_reader(top, traj=None, frame_start=0, name=None):
     readers = collections.OrderedDict([
-        ("simpletraj", FrameReaderSimpleTraj),
         ("mdtraj", FrameReaderMDTraj)
     ])
 
@@ -108,6 +108,7 @@ class FrameReader(metaclass=abc.ABCMeta):
     def read_frame_number(self, number, frame):
         try:
             time, coords, box = self._read_frame_number(number)
+            print(box, frame.number)
             if box is None:
                 box = np.zeros(3)
             frame.time = time
@@ -135,43 +136,6 @@ class FrameReader(metaclass=abc.ABCMeta):
     def _read_frame_number(self, number):
         pass
 
-
-
-class FrameReaderSimpleTraj(FrameReader):
-    def __init__(self, topname, trajname=None, frame_start=0):
-        """
-        Open input XTC file from which to read coordinates using simpletraj library.
-        :param topname: MD topology file - not used
-        :param trajname: MD trajectory file to read subsequent frames
-        :param frame_start: Frame number to start on, default 0
-        """
-        FrameReader.__init__(self, topname, trajname, frame_start)
-
-        with open(self._topname) as gro:
-            gro.readline()
-            try:
-                self.num_atoms = int(gro.readline())
-            except ValueError as e:
-                raise UnsupportedFormatException from e
-
-        from simpletraj import trajectory
-
-        if trajname is not None:
-            try:
-                self._traj = trajectory.get_trajectory(trajname)
-            except OSError as e:
-                if not os.path.isfile(trajname):
-                    raise FileNotFoundError(trajname) from e
-                e.args = ("Error opening file '{0}'".format(trajname),)
-                raise
-            except Exception as e:
-                if "extension" in repr(e) and "not supported" in repr(e):
-                    raise UnsupportedFormatException from e
-                raise
-
-            if self._traj.numatoms != self.num_atoms:
-                raise NonMatchingSystemError
-            self.num_frames = self._traj.numframes
 
     def _initialise_frame(self, frame):
         """
@@ -282,6 +246,8 @@ class FrameReaderMDTraj(FrameReader):
                             coords=top.xyz[0][atom.index])
             frame.residues[atom.residue.index].add_atom(new_atom)
 
+        if top.unitcell_lengths is None:
+            top.unitcell_lengths = [np.array([0., 0., 0.])]
         frame.box = top.unitcell_lengths[0]
 
     def _read_frame_number(self, number):

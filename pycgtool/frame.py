@@ -8,14 +8,13 @@ Both Frame and Residue are iterable. Residue is indexable with either atom numbe
 import logging
 
 import numpy as np
-import mdtraj as md
+from mdtraj import Topology
 from mdtraj import formats as fmt
 from mdtraj.core import element as elem
-from mdtraj.utils import (lengths_and_angles_to_box_vectors,
-                          box_vectors_to_lengths_and_angles)
+from mdtraj.utils import box_vectors_to_lengths_and_angles
 from re import sub
 
-from .util import backup_file, file_write_lines
+from .util import backup_file
 from .parsers.cfg import CFG
 from .parsers.itp import ITP
 
@@ -61,7 +60,7 @@ fields = {'trr': ('xyz', 'time', 'step', 'box', 'lambda'),
                   'velocities', 'kineticEnergy', 'potentialEnergy',
                   'temperature', 'lambda', 'topology'),
           'pdb': ('xyz', 'topology', 'cell_angles', 'cell_lengths'),
-          'gro': ('xyz', 'topology', 'box')}
+          'gro': ('coordinates', 'topology', 'unitcell_vectors')}
 
 units = {'xtc': 'nanometers',
          'xtrr': 'nanometers',
@@ -179,7 +178,7 @@ class Frame:
         self.topology = None
         if coords is not None:
             from .framereader import get_frame_reader
-            self._trajreader = get_frame_reader(coords, traj=traj, frame_start=frame_start)
+            self._trajreader = get_frame_reader(coords, traj=traj, frame_start=frame_start, name=xtc_reader)
 
             self._trajreader.initialise_frame(self)
 
@@ -313,11 +312,16 @@ class Frame:
             a, b, c, alpha, beta, gamma = box_vectors_to_lengths_and_angles(box[:, 0], box[:, 1], box[:, 2])
             data['cell_lengths'] = np.vstack((a, b, c)).T
             data['cell_angles'] = np.vstack((alpha, beta, gamma)).T
-
+        elif "unitcell_vectors" in data:
+            data['unitcell_vectors'] = box
         else:
             data['box'] = box
 
-        data['xyz'] = xyz
+        if 'coordinates' in data:
+            data['coordinates'] = xyz
+        else:
+            data['xyz'] = xyz
+
         if 'time' in data:
             data['time'] = np.array([self.time], dtype=np.float32)
 
@@ -336,23 +340,13 @@ class Frame:
         :param filename: Name of file to write to
         :param format: Format to write e.g. 'gro', 'lammps'
         """
-        #try:
-        #    writer = formats_frame[format](filename, mode="w")
-
-        #except KeyError:
-        #    raise NotImplementedError(".{0} coordinate files are not supported".format(format))
-
-        #xyz, time, step, box = self._get_traj_data(format=format)
-
-        #writer.write(xyz, self.traj, time=time, unitcell_vectors=box)
-
-        outputs = {"gro": self._get_gro_lines,
-                   "lammps": self._get_lammps_data_lines}
         try:
-            lines = outputs[format]()
-            file_write_lines(filename, lines)
+            writer = formats_frame[format](filename, mode="w")
+            data = self._get_traj_data(format=format)
+            writer.write(**data)
+
         except KeyError:
-            print("ERROR: Invalid output format {0}, coordinates will not be output.".format(format))
+            raise NotImplementedError(".{0} coordinate files are not supported".format(format))
 
     def _get_lammps_data_lines(self):
         """
@@ -396,7 +390,7 @@ class Frame:
         Converts frame class to a mdtraj.Topology object
         :return: mdtraj.Topology instance
         """
-        topology = md.Topology()
+        topology = Topology()
         chain = topology.add_chain()
 
         for residue in self:
@@ -409,5 +403,5 @@ class Frame:
                     element = elem.get_by_symbol(thiselem)
                 except KeyError:
                     element = elem.virtual
-                at = topology.add_atom(atom, element, residue=res, serial=atom.num)
+                at = topology.add_atom(atom.name, element, residue=res, serial=atom.num)
         return topology
