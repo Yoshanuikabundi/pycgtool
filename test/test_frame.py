@@ -108,7 +108,7 @@ class FrameTest(unittest.TestCase):
     def test_frame_output_gro(self):
         frame = Frame("test/data/water.gro")
         frame.output("water-out.gro", format="gro")
-        self.assertTrue(cmp_file_whitespace_float("test/data/water.gro", "water-out.gro", verbose=True))
+        self.assertTrue(cmp_file_whitespace_float("test/data/water.gro", "water-out.gro"))
         os.remove("water-out.gro")
 
     def test_frame_read_xtc_mdtraj_numframes(self):

@@ -75,7 +75,7 @@ class PycgtoolTest(unittest.TestCase):
         self.assertTrue(cmp_file_whitespace_float("out.itp", "test/data/sugar_out.itp",
                                                   rtol=0.005))
         self.assertTrue(cmp_file_whitespace_float("out.gro", "test/data/sugar_out.gro",
-                                                  rtol=0.005, verbose=True))
+                                                  rtol=0.005))
     # TODO more tests
 
 

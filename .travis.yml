@@ -11,4 +11,4 @@ install:
     - pip install -r requirements.txt --only-binary=numpy
     - pip install -r .requirements-test.txt --only-binary=scipy
 script:
-    - travis_wait py.test test/
+    - py.test test/
