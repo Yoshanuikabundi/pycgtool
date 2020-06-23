@@ -25,23 +25,37 @@ if __name__ == "__main__":
     input_files.add_argument('--begin', type=int, default=0, help="Frame number to begin")
     input_files.add_argument('--end', type=int, default=-1, help="Frame number to end")
 
+    advanced = parser.add_argument_group("Advanced configuration")
+    advanced.add_argument("--output_name", help="Base name of output files", default="out", type=str, metavar="STRING")
+    advanced.add_argument("--output", help="Coordinate output format", default="gro", type=str, metavar="STRING")
+    advanced.add_argument("--map-only", help="Run in mapping-only mode", default=None, metavar="BOOL")
+    advanced.add_argument("--map-center", help="Mapping method", default="geom", choices=["geom", "mass"], metavar="{geom|mass}")
+    advanced.add_argument("--constr-threshold", help="Convert stiff bonds to constraints over", default=100000.0, type=float, metavar="FLOAT")
+    advanced.add_argument("--dump-measurements", help="Whether to output bond measurements", default=None, metavar="BOOL")
+    advanced.add_argument("--dump-n-values", help="How many measurements to output", default=10000, type=int, metavar="INT")
+    advanced.add_argument("--output-forcefield", help="Output a GROMACS forcefield directory?", default=False, type=bool, metavar="BOOL")
+    advanced.add_argument("--temperature", help="Temperature of reference simulation", default=310.0, type=float, metavar="FLOAT")
+    advanced.add_argument("--default-fc", help="Use default MARTINI force constants?", default=False, type=bool, metavar="BOOL")
+    advanced.add_argument("--generate-angles", help="Generate angles from bonds", default=False, type=bool, metavar="BOOL")
+    advanced.add_argument("--generate-dihedrals", help="Generate dihedrals from bonds", default=False, type=bool, metavar="BOOL")
+
     func_forms = FunctionalForms()
 
     args = parser.parse_args()
     config = Options([
-        ("output_name", "out"),
-        ("output", "gro"),
+        ("output_name", args.output_name),
+        ("output", args.output),
         ("output_xtc", args.outputxtc),
-        ("map_only", not bool(args.bnd)),
-        ("map_center", "geom"),
-        ("constr_threshold", 100000),
-        ("dump_measurements", bool(args.bnd) and not bool(args.map)),
-        ("dump_n_values", 10000),
-        ("output_forcefield", False),
-        ("temperature", 310),
-        ("default_fc", False),
-        ("generate_angles", True),
-        ("generate_dihedrals", False),
+        ("map_only", args.map_only or (args.map_only is None and not bool(args.bnd))),
+        ("map_center", args.map_center),
+        ("constr_threshold", args.constr_threshold),
+        ("dump_measurements", args.dump_measurements or (args.dump_measurements is None and bool(args.bnd) and not bool(args.map))),
+        ("dump_n_values", args.dump_n_values),
+        ("output_forcefield", args.output_forcefield),
+        ("temperature", args.temperature),
+        ("default_fc", args.default_fc),
+        ("generate_angles", args.generate_angles),
+        ("generate_dihedrals", args.generate_dihedrals),
         ("length_form", "harmonic"),
         ("angle_form", "cosharmonic"),
         ("dihedral_form", "harmonic")
